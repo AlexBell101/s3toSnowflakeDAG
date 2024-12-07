@@ -1,9 +1,60 @@
 import streamlit as st
 from datetime import datetime
 
+# Custom CSS for styling based on Astronomer Brand Guidelines
+st.markdown("""
+    <style>
+        /* General styles */
+        html, body, [class*="css"]  {
+            font-family: 'Inter', sans-serif;
+            color: #32325D; /* Moon 500 */
+        }
+        
+        /* Title and headers */
+        .stTitle, .stHeader {
+            font-weight: 600; /* Inter Semi Bold */
+            color: #1A202C; /* Midnight 700 */
+        }
+        
+        /* Subheaders */
+        .stSubheader {
+            font-weight: 500; /* Inter Medium */
+            color: #2D3748; /* Midnight 600 */
+        }
+
+        /* Input text and widgets */
+        .stTextInput > label, .stNumberInput > label, .stDateInput > label {
+            font-weight: 400; /* Inter Normal */
+            color: #4A5568; /* Midnight 500 */
+        }
+        
+        /* Buttons */
+        div.stButton > button {
+            background-color: #2B6CB0; /* Sapphire 500 */
+            color: #FFFFFF; /* White */
+            border: None;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+
+        div.stButton > button:hover {
+            background-color: #3182CE; /* Sapphire 600 */
+        }
+
+        /* Highlight boxes */
+        .stMarkdown h3 {
+            background-color: #EDF2F7; /* Moon 300 */
+            color: #1A202C; /* Midnight 700 */
+            padding: 8px;
+            border-radius: 4px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Title and Introduction
 st.title("Astro S3 to Snowflake")
-st.write("New to Airflow? No problem! Let’s get you orchestrating your data like a pro. Moving data from S3 to Snowflake is one of the most common and powerful use cases, and we’ve made it easy for you. Just follow the steps below, and in a few minutes, you’ll have a fully functional Airflow workflow ready to go!")
+st.write("**New to Airflow? No problem!** Let’s get you orchestrating your data like a pro. Moving data from S3 to Snowflake is one of the most common and powerful use cases, and we’ve made it easy for you. Just follow the steps below, and in a few minutes, you’ll have a fully functional Airflow workflow ready to go!")
 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
@@ -79,4 +130,3 @@ with DAG(
 
     For more details, check out the [Astronomer CLI Docs](https://www.astronomer.io/docs/astro/cli/develop-project).
     """)
-
