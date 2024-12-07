@@ -3,7 +3,7 @@ from datetime import datetime
 
 # Title and Introduction
 st.title("Astro S3 to Snowflake")
-st.write("Welcome to the Astro S3 to Snowflake wizard! This tool will help you generate an Airflow DAG to move data from S3 to Snowflake with ease.")
+st.write("New to Airflow? No problem! Let’s get you orchestrating your data like a pro. Moving data from S3 to Snowflake is one of the most common and powerful use cases, and we’ve made it easy for you. Just follow the steps below, and in a few minutes, you’ll have a fully functional Airflow workflow ready to go!")
 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
