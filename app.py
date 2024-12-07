@@ -76,7 +76,39 @@ password = st.text_input("Snowflake Password", type="password", placeholder="You
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
-schedule = st.text_input("Schedule Interval", placeholder="e.g., @daily or 0 12 * * *")
+
+# Predefined schedule intervals
+schedule_options = {
+    "Every day at midnight": "@daily",
+    "Every hour": "@hourly",
+    "Every Monday at 9 AM": "0 9 * * 1",
+    "Every 15 minutes": "*/15 * * * *",
+    "Every 1st of the month at midnight": "0 0 1 * *",
+    "Custom (Advanced)": None  # Placeholder for custom input
+}
+
+# Dropdown for schedule interval
+selected_schedule = st.selectbox(
+    "Select Schedule Interval",
+    list(schedule_options.keys()),
+    help="Choose how often the DAG should run. Select 'Custom' if you have a specific cron expression."
+)
+
+# If "Custom (Advanced)" is selected, show a text input for custom cron expression
+if selected_schedule == "Custom (Advanced)":
+    custom_interval = st.text_input(
+        "Enter Custom Interval",
+        placeholder="e.g., 0 12 * * * for daily at noon",
+        help="Provide a valid cron expression or Airflow preset like @daily."
+    )
+    schedule = custom_interval
+else:
+    schedule = schedule_options[selected_schedule]
+
+# Show plain-English description of the selected interval
+if schedule:
+    st.markdown(f"**Selected Interval:** `{schedule}`")
+
 start_date = st.date_input("Start Date", value=datetime.now())
 
 # Generate DAG Code
