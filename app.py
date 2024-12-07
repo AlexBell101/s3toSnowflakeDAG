@@ -13,13 +13,13 @@ st.markdown("""
         /* Title (h1) */
         h1 {
             font-weight: 600; /* Inter Semi Bold */
-            color: #7723FF !important; /* Ensure the color is applied */
+            color: #0070F3 !important; /* Ensure the color is applied */
         }
 
         /* Subheaders (h2, h3) */
         h2, h3 {
             font-weight: 500; /* Inter Medium */
-            color: #7723FF !important;
+            color: #0070F3 !important;
         }
 
         /* Input text and widgets */
