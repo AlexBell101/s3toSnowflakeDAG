@@ -13,19 +13,19 @@ st.markdown("""
         /* Title and headers */
         .stTitle, .stHeader {
             font-weight: 600; /* Inter Semi Bold */
-            color: #1A202C; /* Midnight 700 */
+            color: #7723FF; /* Midnight 700 */
         }
         
         /* Subheaders */
         .stSubheader {
             font-weight: 500; /* Inter Medium */
-            color: #2D3748; /* Midnight 600 */
+            color: #7723FF; /* Midnight 600 */
         }
 
         /* Input text and widgets */
         .stTextInput > label, .stNumberInput > label, .stDateInput > label {
             font-weight: 400; /* Inter Normal */
-            color: #4A5568; /* Midnight 500 */
+            color: #A276FF; /* Midnight 500 */
         }
         
         /* Buttons */
