@@ -3,23 +3,23 @@ from datetime import datetime
 
 # Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
-    <style>
+     <style>
         /* General styles */
         html, body, [class*="css"]  {
             font-family: 'Inter', sans-serif;
             color: #32325D; /* Moon 500 */
         }
         
-        /* Title and headers */
-        .stTitle, .stHeader {
+        /* Title (h1) */
+        h1 {
             font-weight: 600; /* Inter Semi Bold */
-            color: #7723FF; /* Midnight 700 */
+            color: #7723FF !important; /* Ensure the color is applied */
         }
-        
-        /* Subheaders */
-        .stSubheader {
+
+        /* Subheaders (h2, h3) */
+        h2, h3 {
             font-weight: 500; /* Inter Medium */
-            color: #7723FF; /* Midnight 600 */
+            color: #7723FF !important;
         }
 
         /* Input text and widgets */
