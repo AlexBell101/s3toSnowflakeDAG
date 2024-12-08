@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime
-import base64
+import base64  # Import for Base64 encoding
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
@@ -9,56 +9,99 @@ GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository na
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
-# Custom CSS for styling
+# Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
     <style>
-        html, body, [class*="css"] { font-family: 'Inter', sans-serif; color: #32325D; }
-        h1 { font-weight: 600; color: #0070F3 !important; }
-        h2, h3 { font-weight: 500; color: #0070F3 !important; }
-        div.stButton > button { background-color: #2B6CB0; color: #FFFFFF; padding: 8px 16px; }
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+            color: #32325D;
+        }
+        h1 {
+            font-weight: 600;
+            color: #0070F3 !important;
+        }
+        h2, h3 {
+            font-weight: 500;
+            color: #0070F3 !important;
+        }
+        .stTextInput > label, .stNumberInput > label, .stDateInput > label {
+            font-weight: 400;
+            color: #A276FF;
+        }
+        div.stButton > button {
+            background-color: #2B6CB0;
+            color: #FFFFFF;
+            border: None;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+        div.stButton > button:hover {
+            background-color: #3182CE;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("Astro Wizard: S3 to Snowflake")
-st.write("This wizard generates a complete Astro project for deploying Airflow DAGs.")
+# Title and Introduction
+st.title("Astro S3 to Snowflake")
+st.write("**New to Airflow? No problem!** Let’s get you orchestrating your data like a pro.")
 
-# Step 1: DAG Configuration
-st.header("Step 1: Configure Your DAG")
-dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
+# Step 1: S3 Configuration
+st.header("Step 1: S3 Configuration")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
 prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
-schedule = st.selectbox(
-    "DAG Schedule Interval",
-    ["@daily", "@hourly", "0 9 * * 1", "*/15 * * * *", "Custom (Advanced)"]
-)
-if schedule == "Custom (Advanced)":
-    schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
+aws_access_key = st.text_input("AWS Access Key", type="password", placeholder="Your AWS Access Key")
+aws_secret_key = st.text_input("AWS Secret Key", type="password", placeholder="Your AWS Secret Key")
+
+# Step 2: Snowflake Configuration
+st.header("Step 2: Snowflake Configuration")
+snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
+database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
+schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
+warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
+role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
+username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
+password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
+
+# Step 3: DAG Configuration
+st.header("Step 3: DAG Configuration")
+dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
+
+# Predefined schedule intervals
+schedule_options = {
+    "Every day at midnight": "@daily",
+    "Every hour": "@hourly",
+    "Every Monday at 9 AM": "0 9 * * 1",
+    "Every 15 minutes": "*/15 * * * *",
+    "Every 1st of the month at midnight": "0 0 1 * *",
+    "Custom (Advanced)": None
+}
+selected_schedule = st.selectbox("Select Schedule Interval", list(schedule_options.keys()))
+schedule = st.text_input("Enter Custom Schedule Interval") if selected_schedule == "Custom (Advanced)" else schedule_options[selected_schedule]
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Step 2: Dependencies
-st.header("Step 2: Define Additional Dependencies")
+# Additional Dependencies
+st.header("Step 4: Additional Dependencies")
 dependencies = st.text_area(
     "Python Dependencies (Optional)",
     "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
+    help="List additional Python libraries required for your DAG."
 )
 
-# Step 3: Operator Logic
-st.header("Step 3: Operator Logic")
-use_s3_to_snowflake = st.checkbox("Use S3ToSnowflakeOperator (Default)", value=True)
+# Deploy Astro Project to GitHub
+if st.button("Generate and Push Astro Project to GitHub"):
+    # Generate DAG file
+    dag_code = f"""
+from airflow import DAG
+from datetime import datetime
 
-# Generate and Push Astro Project
-if st.button("Generate and Push Astro Project"):
-    # Create DAG File
-    if use_s3_to_snowflake:
-        dag_code = f"""
 try:
     from airflow.providers.amazon.aws.transfers.s3_to_snowflake import S3ToSnowflakeOperator
 except ImportError:
-    from airflow.providers.amazon.aws.operators.s3_to_snowflake import S3ToSnowflakeOperator
-
-from airflow import DAG
-from datetime import datetime
+    try:
+        from airflow.providers.amazon.aws.operators.s3_to_snowflake import S3ToSnowflakeOperator
+    except ImportError as e:
+        raise ImportError(f"Failed to import S3ToSnowflakeOperator: {{e}}")
 
 default_args = {{
     "owner": "airflow",
@@ -71,71 +114,62 @@ default_args = {{
 with DAG(
     dag_id="{dag_name}",
     default_args=default_args,
+    description="DAG to transfer data from S3 to Snowflake",
     schedule_interval="{schedule}",
     start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
     catchup=False,
 ) as dag:
-
     s3_to_snowflake = S3ToSnowflakeOperator(
         task_id="s3_to_snowflake",
         s3_bucket="{bucket_name}",
         s3_key="{prefix}",
         aws_conn_id="aws_default",
         snowflake_conn_id="snowflake_default",
-        stage="{dag_name}_stage",
+        stage="{schema}.{dag_name}_stage",
         file_format="(type=csv, field_delimiter=',', skip_header=1)",
     )
     """
-    else:
-        dag_code = f"""
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime
 
-def custom_s3_to_snowflake(**kwargs):
-    # Add your custom logic here
-    print("Transferring data from S3 to Snowflake")
+    # Generate Dockerfile
+    dockerfile_content = """
+FROM quay.io/astronomer/astro-runtime:12.5.0
 
-default_args = {{
-    "owner": "airflow",
-    "depends_on_past": False,
-    "email_on_failure": False,
-    "email_on_retry": False,
-    "retries": 1,
-}}
+# Install additional Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+"""
 
-with DAG(
-    dag_id="{dag_name}",
-    default_args=default_args,
-    schedule_interval="{schedule}",
-    start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
-    catchup=False,
-) as dag:
+    # Generate requirements.txt
+    requirements_content = dependencies
 
-    custom_task = PythonOperator(
-        task_id="s3_to_snowflake_custom",
-        python_callable=custom_s3_to_snowflake,
-    )
-    """
-
-    # Push to GitHub
+    # Prepare files for GitHub
     files_to_push = {
         f"dags/{dag_name}.py": dag_code,
-        "requirements.txt": dependencies,
+        "Dockerfile": dockerfile_content,
+        "requirements.txt": requirements_content,
     }
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    for file_path, content in files_to_push.items():
+
+    # Push each file to GitHub
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    for file_path, file_content in files_to_push.items():
+        encoded_content = base64.b64encode(file_content.encode()).decode()
         url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{file_path}"
-        encoded_content = base64.b64encode(content.encode()).decode()
         response = requests.get(url, headers=headers)
         sha = response.json().get("sha") if response.status_code == 200 else None
 
-        payload = {"message": f"Add {file_path}", "content": encoded_content, "branch": GITHUB_BRANCH}
+        payload = {
+            "message": f"Add {file_path}",
+            "content": encoded_content,
+            "branch": GITHUB_BRANCH,
+        }
         if sha:
             payload["sha"] = sha
 
         response = requests.put(url, json=payload, headers=headers)
         if response.status_code in [200, 201]:
-            st.success(f"{file_path} pushed to GitHub!")
+            st.success(f"{file_path} successfully pushed to GitHub!")
         else:
             st.error(f"Failed to push {file_path}: {response.status_code} - {response.text}")
