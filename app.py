@@ -12,7 +12,7 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 # Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
      <style>
-        html, body, [class*="css"]  {
+        html, body, [class*="css"] {
             font-family: 'Inter', sans-serif;
             color: #32325D;
         }
@@ -50,6 +50,8 @@ st.write("**New to Airflow? No problem!** Let’s get you orchestrating your dat
 st.header("Step 1: S3 Configuration")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
 prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
+aws_access_key = st.text_input("AWS Access Key", type="password", placeholder="Your AWS Access Key")
+aws_secret_key = st.text_input("AWS Secret Key", type="password", placeholder="Your AWS Secret Key")
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
@@ -58,6 +60,8 @@ database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
 schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
 warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
 role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
+username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
+password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
@@ -78,10 +82,11 @@ start_date = st.date_input("Start Date", value=datetime.now())
 
 # Deploy DAG to GitHub
 if st.button("Generate and Push DAG to GitHub"):
-    # Updated DAG Template
+    # Updated DAG Template with Secrets
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.amazon.aws.transfers.s3_to_snowflake import S3ToSnowflakeOperator
+from airflow.models import Variable
 from datetime import datetime
 
 default_args = {{
@@ -91,6 +96,12 @@ default_args = {{
     "email_on_retry": False,
     "retries": 1,
 }}
+
+# AWS and Snowflake secrets as Airflow Variables (adjust names as needed)
+aws_access_key_id = Variable.get("AWS_ACCESS_KEY_ID")
+aws_secret_access_key = Variable.get("AWS_SECRET_ACCESS_KEY")
+snowflake_username = Variable.get("SNOWFLAKE_USERNAME")
+snowflake_password = Variable.get("SNOWFLAKE_PASSWORD")
 
 with DAG(
     dag_id="{dag_name}",
@@ -105,7 +116,8 @@ with DAG(
         task_id="s3_to_snowflake",
         s3_bucket="{bucket_name}",
         s3_key="{prefix}",
-        snowflake_conn_id="snowflake_default",
+        aws_conn_id="aws_default",  # Ensure this connection exists in Airflow
+        snowflake_conn_id="snowflake_default",  # Ensure this connection exists in Airflow
         stage="{schema}.{dag_name}_stage",
         file_format="(type=csv, field_delimiter=',', skip_header=1)",
     )
