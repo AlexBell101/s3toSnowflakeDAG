@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime
+import base64  # Import for Base64 encoding
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
@@ -145,6 +146,9 @@ with DAG(
     s3_to_snowflake
     """
 
+    # Encode the DAG content to Base64
+    encoded_content = base64.b64encode(dag_code.encode()).decode()
+
     # GitHub API request to upload the file
     file_path = f"dags/{dag_name}.py"
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{file_path}"
@@ -160,7 +164,7 @@ with DAG(
     # Prepare payload
     payload = {
         "message": f"Add DAG {dag_name}",
-        "content": dag_code.encode("utf-8").decode("utf-8"),
+        "content": encoded_content,  # Use Base64-encoded content
         "branch": GITHUB_BRANCH
     }
     if sha:
