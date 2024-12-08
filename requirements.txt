@@ -1,7 +1,5 @@
-streamlit
-apache-airflow
-apache-airflow-providers-amazon
-apache-airflow-providers-snowflake
-boto3
-snowflake-connector-python
-
+apache-airflow==2.10.3
+apache-airflow-providers-amazon==9.1.0
+apache-airflow-providers-snowflake==5.8.1
+snowflake-connector-python==3.0.3
+snowflake-sqlalchemy==1.4.7
