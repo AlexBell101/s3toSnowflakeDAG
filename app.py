@@ -2,19 +2,13 @@ import streamlit as st
 import requests
 from datetime import datetime
 import base64
-import json
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
-
-# Astro API Configuration
-ASTRO_API_URL = "https://cloud.astronomer.io/hub/v1"  # Replace with the Astro API base URL
-ASTRO_API_TOKEN = st.secrets["API"]  # Access Astro API token from secrets
-WORKSPACE_ID = "your-workspace-id"  # Replace with your Astro workspace ID
-DEPLOYMENT_ID = "your-deployment-id"  # Replace with your Astro deployment ID
+ASTRO_API_TOKEN = st.secrets["API"]  # Astro API Token
 
 # Custom CSS
 st.markdown("""
@@ -31,52 +25,44 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("Astro Project Wizard")
-
 # Introduction
+st.title("Astro Project Wizard")
 st.write("""
-### Welcome to the Astro Project Wizard!
-Whether you're a seasoned Airflow pro or brand new to the platform, you're in the right place. This wizard will guide you step-by-step in creating a complete Astro project to deploy your DAGs, integrate with Snowflake, and set up connections automatically.
-
-No prior experience? No problem! We've designed this wizard to make everything simple and intuitive. Let's get started! 🚀
+Welcome to the Astro Project Wizard!  
+No experience with Airflow? No problem! This tool will guide you step-by-step to generate and deploy an Airflow DAG.
 """)
 
 # Step 1: DAG Configuration
 st.header("Step 1: Configure Your DAG")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 
-# User-friendly scheduling options
-schedule_friendly = st.selectbox(
-    "DAG Schedule Interval",
-    [
-        "Daily",
-        "Hourly",
-        "Weekly (Monday at 9 AM)",
-        "Every 15 minutes",
-        "Custom (Advanced)",
-    ]
+schedule_interval = st.selectbox(
+    "How often should this DAG run?",
+    ["Every Day", "Every Hour", "Every Week", "Every 15 Minutes", "Custom"]
 )
-schedule_mapping = {
-    "Daily": "@daily",
-    "Hourly": "@hourly",
-    "Weekly (Monday at 9 AM)": "0 9 * * 1",
-    "Every 15 minutes": "*/15 * * * *",
-    "Custom (Advanced)": None,  # Custom value will be input by the user
-}
-schedule = schedule_mapping[schedule_friendly]
-if schedule_friendly == "Custom (Advanced)":
-    schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
+if schedule_interval == "Custom":
+    schedule_interval = st.text_input("Custom Schedule Interval (Cron Format)", placeholder="e.g., 0 12 * * *")
+else:
+    interval_mapping = {
+        "Every Day": "@daily",
+        "Every Hour": "@hourly",
+        "Every Week": "0 9 * * 1",
+        "Every 15 Minutes": "*/15 * * * *",
+    }
+    schedule_interval = interval_mapping[schedule_interval]
 
-start_date = st.date_input("Start Date", value=datetime.now())
+start_date = st.date_input("When should the DAG start?", value=datetime.now())
 
 # Step 2: S3 Configuration
 st.header("Step 2: Configure S3 Inputs")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
 prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
+aws_access_key = st.text_input("AWS Access Key", placeholder="Your AWS Access Key")
+aws_secret_key = st.text_input("AWS Secret Key", type="password", placeholder="Your AWS Secret Key")
+s3_endpoint = st.text_input("S3 Endpoint (Optional)", placeholder="e.g., https://s3.amazonaws.com")
 
 # Step 3: Snowflake Configuration
-st.header("Step 3: Snowflake Configuration")
+st.header("Step 3: Configure Snowflake Inputs")
 snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
 database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
 schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
@@ -85,15 +71,8 @@ role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
 username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
 password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
 
-# Step 4: Dependencies
-st.header("Step 4: Define Additional Dependencies")
-dependencies = st.text_area(
-    "Python Dependencies (Optional)",
-    "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
-)
-
-# Generate Files and Add Astro Connection
-if st.button("Generate and Push Astro Project to GitHub and Add Connection"):
+# Generate Files
+if st.button("Generate and Push Astro Project to GitHub"):
     # Create DAG File
     dag_code = f"""
 from airflow import DAG
@@ -112,7 +91,7 @@ default_args = {{
 with DAG(
     dag_id="{dag_name}",
     default_args=default_args,
-    schedule_interval="{schedule}",
+    schedule_interval="{schedule_interval}",
     start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
     catchup=False,
 ) as dag:
@@ -123,14 +102,17 @@ with DAG(
         filename="/path/to/your/local/file.csv",  # Replace with the local file path
         dest_key="{prefix}",
         dest_bucket_name="{bucket_name}",
-        aws_conn_id="aws_default",
+        aws_conn_id=None,
+        aws_access_key="{aws_access_key}",
+        aws_secret_key="{aws_secret_key}",
+        endpoint_url="{s3_endpoint}" if s3_endpoint else None,
     )
 
     # Task 2: Load data from S3 into Snowflake
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
         table="your_table_name",  # Replace with your Snowflake table name
-        stage="your_stage_name",  # Replace with your Snowflake stage
+        stage="{dag_name}_stage",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
         snowflake_conn_id="snowflake_default",
@@ -146,7 +128,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 """
     # Create requirements.txt
-    requirements_content = dependencies
+    requirements_content = "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake"
 
     # Prepare files
     files_to_push = {
@@ -171,27 +153,3 @@ RUN pip install --no-cache-dir -r requirements.txt
             st.success(f"{file_path} pushed to GitHub!")
         else:
             st.error(f"Failed to push {file_path}: {response.status_code} - {response.text}")
-
-    # Add Snowflake connection to Astro
-    astro_headers = {"Authorization": f"Bearer {ASTRO_API_TOKEN}", "Content-Type": "application/json"}
-    connection_payload = {
-        "connectionId": "snowflake_default",
-        "deploymentId": DEPLOYMENT_ID,
-        "connectionType": "snowflake",
-        "connectionMetadata": {
-            "account": snowflake_account,
-            "database": database,
-            "schema": schema,
-            "warehouse": warehouse,
-            "role": role,
-            "username": username,
-            "password": password,
-        }
-    }
-    connection_url = f"{ASTRO_API_URL}/workspaces/{WORKSPACE_ID}/connections"
-    response = requests.post(connection_url, json=connection_payload, headers=astro_headers)
-
-    if response.status_code in [200, 201]:
-        st.success("Snowflake connection added to Astro successfully!")
-    else:
-        st.error(f"Failed to add Snowflake connection: {response.status_code} - {response.text}")
