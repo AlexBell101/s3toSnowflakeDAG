@@ -45,12 +45,29 @@ No prior experience? No problem! We've designed this wizard to make everything s
 # Step 1: DAG Configuration
 st.header("Step 1: Configure Your DAG")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
-schedule = st.selectbox(
+
+# User-friendly scheduling options
+schedule_friendly = st.selectbox(
     "DAG Schedule Interval",
-    ["@daily", "@hourly", "0 9 * * 1", "*/15 * * * *", "Custom (Advanced)"]
+    [
+        "Daily",
+        "Hourly",
+        "Weekly (Monday at 9 AM)",
+        "Every 15 minutes",
+        "Custom (Advanced)",
+    ]
 )
-if schedule == "Custom (Advanced)":
+schedule_mapping = {
+    "Daily": "@daily",
+    "Hourly": "@hourly",
+    "Weekly (Monday at 9 AM)": "0 9 * * 1",
+    "Every 15 minutes": "*/15 * * * *",
+    "Custom (Advanced)": None,  # Custom value will be input by the user
+}
+schedule = schedule_mapping[schedule_friendly]
+if schedule_friendly == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
+
 start_date = st.date_input("Start Date", value=datetime.now())
 
 # Step 2: S3 Configuration
