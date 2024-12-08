@@ -60,12 +60,14 @@ start_date = st.date_input("Start Date", value=datetime.now())
 
 # Generate Astro Connections via API
 if st.button("Set Up Connections in Astro"):
-    # Create S3 Connection
+    # S3 Connection Payload
     s3_payload = {
         "connection_id": "aws_default",
         "conn_type": "aws",
         "extra": f'{{"aws_access_key_id": "{aws_access_key}", "aws_secret_access_key": "{aws_secret_key}"}}'
     }
+
+    # Snowflake Connection Payload
     snowflake_payload = {
         "connection_id": "snowflake_default",
         "conn_type": "snowflake",
@@ -75,17 +77,22 @@ if st.button("Set Up Connections in Astro"):
         "password": password,
         "extra": f'{{"database": "{database}", "warehouse": "{warehouse}", "role": "{role}"}}'
     }
+
+    # Send API Requests
     headers = {"Authorization": f"Bearer {ASTRO_API_TOKEN}"}
-    s3_response = requests.post(f"{ASTRO_API_URL}/api/v1/connections", json=s3_payload, headers=headers)
-    snowflake_response = requests.post(f"{ASTRO_API_URL}/api/v1/connections", json=snowflake_payload, headers=headers)
+    s3_response = requests.post(f"{ASTRO_API_URL}/connections", json=s3_payload, headers=headers)
+    snowflake_response = requests.post(f"{ASTRO_API_URL}/connections", json=snowflake_payload, headers=headers)
+
+    # Debug Responses
     if s3_response.status_code == 201:
         st.success("S3 connection added to Astro!")
     else:
-        st.error(f"Failed to add S3 connection: {s3_response.json()}")
+        st.error(f"Failed to add S3 connection: {s3_response.status_code} - {s3_response.text}")
+
     if snowflake_response.status_code == 201:
         st.success("Snowflake connection added to Astro!")
     else:
-        st.error(f"Failed to add Snowflake connection: {snowflake_response.json()}")
+        st.error(f"Failed to add Snowflake connection: {snowflake_response.status_code} - {snowflake_response.text}")
 
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
