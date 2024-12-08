@@ -1,5 +1,10 @@
 import streamlit as st
+import requests
 from datetime import datetime
+
+# Astro API configuration
+ASTRO_API_URL = "https://your-astro-api-url/v1/deployments/{deployment_id}/dag"
+astro_api_token = st.secrets["API"]  # Access the API token from Streamlit secrets
 
 # Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
@@ -111,8 +116,8 @@ if schedule:
 
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Generate DAG Code
-if st.button("Generate DAG"):
+# Deploy DAG to Astro
+if st.button("Deploy DAG to Astro"):
     # DAG Template
     dag_code = f"""
 from airflow import DAG
@@ -137,28 +142,20 @@ with DAG(
 
     s3_to_snowflake
     """
-    
-    st.code(dag_code, language="python")
 
-    # Provide Download and Next Steps
-    st.download_button(
-        label="Download DAG File",
-        data=dag_code,
-        file_name=f"{dag_name}.py",
-        mime="text/x-python"
-    )
+    # API Call to Deploy DAG
+    headers = {
+        "Authorization": f"Bearer {astro_api_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "dag_name": dag_name,
+        "dag_content": dag_code
+    }
 
-    # Next Steps Instructions
-    st.markdown("""
-    ### Next Steps
-    1. Save the downloaded file in the `dags/` folder of your Astronomer project.
-    2. Open your terminal and navigate to your Astronomer project directory.
-    3. Run the following commands to start your local Airflow instance:
-       ```bash
-       astro dev start
-       ```
-    4. Access the Airflow UI at `http://localhost:8080` to see your new DAG!
-    5. Trigger the DAG to start moving data from S3 to Snowflake.
+    response = requests.post(ASTRO_API_URL, json=payload, headers=headers)
 
-    For more details, check out the [Astronomer CLI Docs](https://www.astronomer.io/docs/astro/cli/develop-project).
-    """)
+    if response.status_code == 200:
+        st.success("DAG successfully deployed to Astro!")
+    else:
+        st.error(f"Failed to deploy DAG: {response.text}")
