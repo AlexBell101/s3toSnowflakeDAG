@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 
 # Astro API configuration
-ASTRO_API_URL = "ASTRO_API_URL = "https://cloud.astronomer.io/v1/deployments/cm4etuhhm081s01llftyh3m6u/dag"
+ASTRO_API_URL = "https://cloud.astronomer.io/v1/deployments/cm4etuhhm081s01llftyh3m6u/dag"
 astro_api_token = st.secrets["API"]  # Access the API token from Streamlit secrets
 
 # Custom CSS for styling based on Astronomer Brand Guidelines
