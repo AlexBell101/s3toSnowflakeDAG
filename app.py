@@ -9,23 +9,18 @@ GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository na
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
-# Custom CSS
+# Custom CSS for styling
 st.markdown("""
     <style>
-        html, body, [class*="css"] {
-            font-family: 'Inter', sans-serif;
-            color: #32325D;
-        }
+        html, body, [class*="css"] { font-family: 'Inter', sans-serif; color: #32325D; }
         h1 { font-weight: 600; color: #0070F3 !important; }
         h2, h3 { font-weight: 500; color: #0070F3 !important; }
-        .stTextInput > label, .stNumberInput > label, .stDateInput > label { color: #A276FF; }
-        div.stButton > button { background-color: #2B6CB0; color: #FFFFFF; padding: 8px 16px; font-weight: 500; }
-        div.stButton > button:hover { background-color: #3182CE; }
+        div.stButton > button { background-color: #2B6CB0; color: #FFFFFF; padding: 8px 16px; }
     </style>
 """, unsafe_allow_html=True)
 
 # Title
-st.title("Astro Project Wizard")
+st.title("Astro Wizard: S3 to Snowflake")
 st.write("This wizard generates a complete Astro project for deploying Airflow DAGs.")
 
 # Step 1: DAG Configuration
@@ -48,12 +43,21 @@ dependencies = st.text_area(
     "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
 )
 
-# Generate Files
-if st.button("Generate and Push Astro Project to GitHub"):
+# Step 3: Operator Logic
+st.header("Step 3: Operator Logic")
+use_s3_to_snowflake = st.checkbox("Use S3ToSnowflakeOperator (Default)", value=True)
+
+# Generate and Push Astro Project
+if st.button("Generate and Push Astro Project"):
     # Create DAG File
-    dag_code = f"""
+    if use_s3_to_snowflake:
+        dag_code = f"""
+try:
+    from airflow.providers.amazon.aws.transfers.s3_to_snowflake import S3ToSnowflakeOperator
+except ImportError:
+    from airflow.providers.amazon.aws.operators.s3_to_snowflake import S3ToSnowflakeOperator
+
 from airflow import DAG
-from airflow.providers.amazon.aws.transfers.s3_to_snowflake import S3ToSnowflakeOperator
 from datetime import datetime
 
 default_args = {{
@@ -82,33 +86,54 @@ with DAG(
         file_format="(type=csv, field_delimiter=',', skip_header=1)",
     )
     """
-    # Create Dockerfile
-    dockerfile_content = """
-FROM quay.io/astronomer/astro-runtime:12.5.0
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-"""
-    # Create requirements.txt
-    requirements_content = dependencies
+    else:
+        dag_code = f"""
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
 
-    # Prepare files
-    files_to_push = {
-        f"dags/{dag_name}.py": dag_code,
-        "Dockerfile": dockerfile_content,
-        "requirements.txt": requirements_content,
-    }
+def custom_s3_to_snowflake(**kwargs):
+    # Add your custom logic here
+    print("Transferring data from S3 to Snowflake")
+
+default_args = {{
+    "owner": "airflow",
+    "depends_on_past": False,
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 1,
+}}
+
+with DAG(
+    dag_id="{dag_name}",
+    default_args=default_args,
+    schedule_interval="{schedule}",
+    start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
+    catchup=False,
+) as dag:
+
+    custom_task = PythonOperator(
+        task_id="s3_to_snowflake_custom",
+        python_callable=custom_s3_to_snowflake,
+    )
+    """
 
     # Push to GitHub
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Content-Type": "application/json"}
-    for file_path, file_content in files_to_push.items():
-        encoded_content = base64.b64encode(file_content.encode()).decode()
+    files_to_push = {
+        f"dags/{dag_name}.py": dag_code,
+        "requirements.txt": dependencies,
+    }
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+    for file_path, content in files_to_push.items():
         url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{file_path}"
+        encoded_content = base64.b64encode(content.encode()).decode()
         response = requests.get(url, headers=headers)
         sha = response.json().get("sha") if response.status_code == 200 else None
 
         payload = {"message": f"Add {file_path}", "content": encoded_content, "branch": GITHUB_BRANCH}
         if sha:
             payload["sha"] = sha
+
         response = requests.put(url, json=payload, headers=headers)
         if response.status_code in [200, 201]:
             st.success(f"{file_path} pushed to GitHub!")
