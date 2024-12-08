@@ -176,3 +176,4 @@ RUN pip install --no-cache-dir -r requirements.txt
             st.success(f"{file_path} successfully pushed to GitHub!")
         else:
             st.error(f"Failed to push {file_path}: {response.status_code} - {response.text}")
+            
