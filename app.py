@@ -2,9 +2,11 @@ import streamlit as st
 import requests
 from datetime import datetime
 
-# Astro API configuration
-ASTRO_API_URL = "https://cloud.astronomer.io/v1/deployments/cm4etuhhm081s01llftyh3m6u/dag"
-astro_api_token = st.secrets["API"]  # Access the API token from Streamlit secrets
+# GitHub Configuration
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
+GITHUB_BRANCH = "main"  # Replace with your target branch
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
 # Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
@@ -116,8 +118,8 @@ if schedule:
 
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Deploy DAG to Astro
-if st.button("Deploy DAG to Astro"):
+# Deploy DAG to GitHub
+if st.button("Generate and Push DAG to GitHub"):
     # DAG Template
     dag_code = f"""
 from airflow import DAG
@@ -143,23 +145,31 @@ with DAG(
     s3_to_snowflake
     """
 
-    # API Call to Deploy DAG
+    # GitHub API request to upload the file
+    file_path = f"dags/{dag_name}.py"
+    url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{file_path}"
     headers = {
-        "Authorization": f"Bearer {astro_api_token}",
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Content-Type": "application/json"
     }
+
+    # Check if file exists and get its SHA
+    response = requests.get(url, headers=headers)
+    sha = response.json().get("sha") if response.status_code == 200 else None
+
+    # Prepare payload
     payload = {
-        "dag_name": dag_name,
-        "dag_content": dag_code
+        "message": f"Add DAG {dag_name}",
+        "content": dag_code.encode("utf-8").decode("utf-8"),
+        "branch": GITHUB_BRANCH
     }
+    if sha:
+        payload["sha"] = sha
 
-    st.write("Payload being sent:", payload)
-    st.write("Headers being sent:", headers)
-    st.write("API Endpoint:", ASTRO_API_URL)
+    # Upload the file to GitHub
+    response = requests.put(url, json=payload, headers=headers)
 
-    response = requests.put(ASTRO_API_URL, json=payload, headers=headers)
-
-    if response.status_code == 200:
-        st.success("DAG successfully deployed to Astro!")
+    if response.status_code in [200, 201]:
+        st.success(f"DAG '{dag_name}' successfully pushed to GitHub!")
     else:
-        st.error(f"Failed to deploy DAG: {response.status_code} - {response.text}")
+        st.error(f"Failed to push DAG to GitHub: {response.status_code} - {response.text}")
