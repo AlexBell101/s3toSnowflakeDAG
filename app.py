@@ -66,18 +66,7 @@ password = st.text_input("Snowflake Password", type="password", placeholder="You
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
-
-# Predefined schedule intervals
-schedule_options = {
-    "Every day at midnight": "@daily",
-    "Every hour": "@hourly",
-    "Every Monday at 9 AM": "0 9 * * 1",
-    "Every 15 minutes": "*/15 * * * *",
-    "Every 1st of the month at midnight": "0 0 1 * *",
-    "Custom (Advanced)": None
-}
-selected_schedule = st.selectbox("Select Schedule Interval", list(schedule_options.keys()))
-schedule = st.text_input("Enter Custom Schedule Interval") if selected_schedule == "Custom (Advanced)" else schedule_options[selected_schedule]
+schedule = st.text_input("DAG Schedule Interval", placeholder="e.g., @daily")
 start_date = st.date_input("Start Date", value=datetime.now())
 
 # Additional Dependencies
@@ -90,11 +79,10 @@ dependencies = st.text_area(
 
 # Deploy Astro Project to GitHub
 if st.button("Generate and Push Astro Project to GitHub"):
-    # Generate DAG file
+    # Generate DAG file with Snowflake username/password
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.amazon.aws.transfers.s3_to_snowflake import S3ToSnowflakeOperator
-from airflow.models import Variable
 from datetime import datetime
 
 default_args = {{
@@ -113,13 +101,19 @@ with DAG(
     start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
     catchup=False,
 ) as dag:
+
     s3_to_snowflake = S3ToSnowflakeOperator(
         task_id="s3_to_snowflake",
         s3_bucket="{bucket_name}",
         s3_key="{prefix}",
         aws_conn_id="aws_default",
-        snowflake_conn_id="snowflake_default",
-        stage="{schema}.{dag_name}_stage",
+        snowflake_conn_id=None,
+        account="{snowflake_account}.snowflakecomputing.com",
+        warehouse="{warehouse}",
+        database="{database}",
+        schema="{schema}",
+        user="{username}",
+        password="{password}",
         file_format="(type=csv, field_delimiter=',', skip_header=1)",
     )
     """
@@ -167,4 +161,3 @@ RUN pip install --no-cache-dir -r requirements.txt
             st.success(f"{file_path} successfully pushed to GitHub!")
         else:
             st.error(f"Failed to push {file_path}: {response.status_code} - {response.text}")
-            
