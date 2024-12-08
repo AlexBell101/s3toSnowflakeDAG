@@ -153,9 +153,13 @@ with DAG(
         "dag_content": dag_code
     }
 
-    response = requests.post(ASTRO_API_URL, json=payload, headers=headers)
+    st.write("Payload being sent:", payload)
+    st.write("Headers being sent:", headers)
+    st.write("API Endpoint:", ASTRO_API_URL)
+
+    response = requests.put(ASTRO_API_URL, json=payload, headers=headers)
 
     if response.status_code == 200:
         st.success("DAG successfully deployed to Astro!")
     else:
-        st.error(f"Failed to deploy DAG: {response.text}")
+        st.error(f"Failed to deploy DAG: {response.status_code} - {response.text}")
