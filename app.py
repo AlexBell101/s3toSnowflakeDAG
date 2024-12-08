@@ -41,8 +41,19 @@ if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Step 2: Dependencies
-st.header("Step 2: Define Additional Dependencies")
+# Step 2: Snowflake Configuration
+st.header("Step 2: Configure Snowflake")
+snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
+snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
+snowflake_file_format = st.text_input(
+    "Snowflake File Format",
+    placeholder="e.g., (TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
+    value="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)"
+)
+snowflake_pattern = st.text_input("Snowflake File Pattern (Optional)", placeholder="e.g., .*\\.csv")
+
+# Step 3: Dependencies
+st.header("Step 3: Define Additional Dependencies")
 dependencies = st.text_area(
     "Python Dependencies (Optional)",
     "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
@@ -85,10 +96,10 @@ with DAG(
     # Task 2: Load data from S3 into Snowflake
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
-        table="your_table_name",  # Replace with your Snowflake table name
-        stage="{dag_name}_stage",
-        file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-        pattern=".*\\.csv",
+        table="{snowflake_table}",
+        stage="{snowflake_stage}",
+        file_format="{snowflake_file_format}",
+        pattern="{snowflake_pattern}",
         snowflake_conn_id="snowflake_default",
     )
 
