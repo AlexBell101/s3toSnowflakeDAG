@@ -2,12 +2,19 @@ import streamlit as st
 import requests
 from datetime import datetime
 import base64
+import json
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
+
+# Astro API Configuration
+ASTRO_API_URL = "https://cloud.astronomer.io/hub/v1"  # Replace with the Astro API base URL
+ASTRO_API_TOKEN = st.secrets["API"]  # Access Astro API token from secrets
+WORKSPACE_ID = "your-workspace-id"  # Replace with your Astro workspace ID
+DEPLOYMENT_ID = "your-deployment-id"  # Replace with your Astro deployment ID
 
 # Custom CSS
 st.markdown("""
@@ -26,7 +33,7 @@ st.markdown("""
 
 # Title
 st.title("Astro Project Wizard")
-st.write("This wizard generates a complete Astro project for deploying Airflow DAGs.")
+st.write("This wizard generates a complete Astro project for deploying Airflow DAGs and sets up Snowflake connections in Astro.")
 
 # Step 1: DAG Configuration
 st.header("Step 1: Configure Your DAG")
@@ -42,15 +49,14 @@ if schedule == "Custom (Advanced)":
 start_date = st.date_input("Start Date", value=datetime.now())
 
 # Step 2: Snowflake Configuration
-st.header("Step 2: Configure Snowflake")
-snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
-snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
-snowflake_file_format = st.text_input(
-    "Snowflake File Format",
-    placeholder="e.g., (TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-    value="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)"
-)
-snowflake_pattern = st.text_input("Snowflake File Pattern (Optional)", placeholder="e.g., .*\\.csv")
+st.header("Step 2: Snowflake Configuration")
+snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
+database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
+schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
+warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
+role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
+username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
+password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
 
 # Step 3: Dependencies
 st.header("Step 3: Define Additional Dependencies")
@@ -59,8 +65,8 @@ dependencies = st.text_area(
     "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
 )
 
-# Generate Files
-if st.button("Generate and Push Astro Project to GitHub"):
+# Generate Files and Add Astro Connection
+if st.button("Generate and Push Astro Project to GitHub and Add Connection"):
     # Create DAG File
     dag_code = f"""
 from airflow import DAG
@@ -96,10 +102,10 @@ with DAG(
     # Task 2: Load data from S3 into Snowflake
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
-        table="{snowflake_table}",
-        stage="{snowflake_stage}",
-        file_format="{snowflake_file_format}",
-        pattern="{snowflake_pattern}",
+        table="your_table_name",  # Replace with your Snowflake table name
+        stage="your_stage_name",  # Replace with your Snowflake stage
+        file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
+        pattern=".*\\.csv",
         snowflake_conn_id="snowflake_default",
     )
 
@@ -138,3 +144,27 @@ RUN pip install --no-cache-dir -r requirements.txt
             st.success(f"{file_path} pushed to GitHub!")
         else:
             st.error(f"Failed to push {file_path}: {response.status_code} - {response.text}")
+
+    # Add Snowflake connection to Astro
+    astro_headers = {"Authorization": f"Bearer {ASTRO_API_TOKEN}", "Content-Type": "application/json"}
+    connection_payload = {
+        "connectionId": "snowflake_default",
+        "deploymentId": DEPLOYMENT_ID,
+        "connectionType": "snowflake",
+        "connectionMetadata": {
+            "account": snowflake_account,
+            "database": database,
+            "schema": schema,
+            "warehouse": warehouse,
+            "role": role,
+            "username": username,
+            "password": password,
+        }
+    }
+    connection_url = f"{ASTRO_API_URL}/workspaces/{WORKSPACE_ID}/connections"
+    response = requests.post(connection_url, json=connection_payload, headers=astro_headers)
+
+    if response.status_code in [200, 201]:
+        st.success("Snowflake connection added to Astro successfully!")
+    else:
+        st.error(f"Failed to add Snowflake connection: {response.status_code} - {response.text}")
