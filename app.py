@@ -33,13 +33,18 @@ st.markdown("""
 
 # Title
 st.title("Astro Project Wizard")
-st.write("This wizard generates a complete Astro project for deploying Airflow DAGs and sets up Snowflake connections in Astro.")
+
+# Introduction
+st.write("""
+### Welcome to the Astro Project Wizard!
+Whether you're a seasoned Airflow pro or brand new to the platform, you're in the right place. This wizard will guide you step-by-step in creating a complete Astro project to deploy your DAGs, integrate with Snowflake, and set up connections automatically.
+
+No prior experience? No problem! We've designed this wizard to make everything simple and intuitive. Let's get started! 🚀
+""")
 
 # Step 1: DAG Configuration
 st.header("Step 1: Configure Your DAG")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
-bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
 schedule = st.selectbox(
     "DAG Schedule Interval",
     ["@daily", "@hourly", "0 9 * * 1", "*/15 * * * *", "Custom (Advanced)"]
@@ -48,8 +53,13 @@ if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Step 2: Snowflake Configuration
-st.header("Step 2: Snowflake Configuration")
+# Step 2: S3 Configuration
+st.header("Step 2: Configure S3 Inputs")
+bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
+prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
+
+# Step 3: Snowflake Configuration
+st.header("Step 3: Snowflake Configuration")
 snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
 database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
 schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
@@ -58,8 +68,8 @@ role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
 username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
 password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
 
-# Step 3: Dependencies
-st.header("Step 3: Define Additional Dependencies")
+# Step 4: Dependencies
+st.header("Step 4: Define Additional Dependencies")
 dependencies = st.text_area(
     "Python Dependencies (Optional)",
     "snowflake-connector-python\napache-airflow-providers-amazon\napache-airflow-providers-snowflake",
