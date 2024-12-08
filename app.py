@@ -11,7 +11,7 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
 # Custom CSS for styling based on Astronomer Brand Guidelines
 st.markdown("""
-     <style>
+    <style>
         html, body, [class*="css"] {
             font-family: 'Inter', sans-serif;
             color: #32325D;
@@ -125,7 +125,13 @@ with DAG(
     """
 
     # Generate Dockerfile
-    dockerfile_content = "FROM quay.io/astronomer/astro-runtime:7.3.0"
+    dockerfile_content = """
+FROM quay.io/astronomer/astro-runtime:7.3.0
+
+# Install additional Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+"""
 
     # Generate requirements.txt
     requirements_content = dependencies
