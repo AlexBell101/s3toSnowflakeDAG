@@ -5,7 +5,7 @@ import base64
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_REPO = "YourGitHubRepo/astro-dags"
+GITHUB_REPO = "YourGitHubRepo/astro-dags"  # Replace with your repo name
 GITHUB_BRANCH = "main"
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 
@@ -93,6 +93,7 @@ with DAG(
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{dag_path}"
 
+    # Get existing SHA if file exists
     response = requests.get(url, headers=headers)
     sha = response.json().get("sha") if response.status_code == 200 else None
 
