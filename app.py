@@ -1,15 +1,13 @@
 import streamlit as st
-import requests
 from datetime import datetime
 import base64
+import requests
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
-ASTRO_API_URL = st.secrets["ASTRO_API"]  # Access Astro API URL from secrets
-ASTRO_API_TOKEN = st.secrets["API"]  # Access Astro API token from secrets
 
 # Custom CSS
 st.markdown("""
@@ -28,27 +26,22 @@ st.markdown("""
 
 # Title
 st.title("Astro Project Wizard")
-st.write("Welcome! This wizard will help you create an Astro project with ease, even if you're new to Airflow.")
+st.write("""
+Welcome! This wizard will guide you in creating an Astro project.
+Before starting:
+1. Go to Astro and create your S3 and Snowflake connections using the **Connections** tab.
+2. Note the `connection_id` for each connection.
 
-# Step 1: S3 Configuration
-st.header("Step 1: S3 Configuration")
-bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
-aws_access_key = st.text_input("AWS Access Key ID", type="password")
-aws_secret_key = st.text_input("AWS Secret Access Key", type="password")
+Once you're ready, fill out the details below and let the wizard handle the rest!
+""")
 
-# Step 2: Snowflake Configuration
-st.header("Step 2: Snowflake Configuration")
-snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
-database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
-schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
-warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
-role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
-username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
-password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
+# Step 1: Connection Details
+st.header("Step 1: Specify Connection IDs")
+s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., aws_default")
+snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake_default")
 
-# Step 3: DAG Configuration
-st.header("Step 3: DAG Configuration")
+# Step 2: DAG Configuration
+st.header("Step 2: Configure Your DAG")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
     "How often should this DAG run?",
@@ -57,42 +50,6 @@ schedule = st.selectbox(
 if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
-
-# Generate Astro Connections via API
-if st.button("Set Up Connections in Astro"):
-    # S3 Connection Payload
-    s3_payload = {
-        "connection_id": "aws_default",
-        "conn_type": "aws",
-        "extra": f'{{"aws_access_key_id": "{aws_access_key}", "aws_secret_access_key": "{aws_secret_key}"}}'
-    }
-
-    # Snowflake Connection Payload
-    snowflake_payload = {
-        "connection_id": "snowflake_default",
-        "conn_type": "snowflake",
-        "host": snowflake_account,
-        "schema": schema,
-        "login": username,
-        "password": password,
-        "extra": f'{{"database": "{database}", "warehouse": "{warehouse}", "role": "{role}"}}'
-    }
-
-    # Send API Requests
-    headers = {"Authorization": f"Bearer {ASTRO_API_TOKEN}"}
-    s3_response = requests.post(f"{ASTRO_API_URL}/connections", json=s3_payload, headers=headers)
-    snowflake_response = requests.post(f"{ASTRO_API_URL}/connections", json=snowflake_payload, headers=headers)
-
-    # Debug Responses
-    if s3_response.status_code == 201:
-        st.success("S3 connection added to Astro!")
-    else:
-        st.error(f"Failed to add S3 connection: {s3_response.status_code} - {s3_response.text}")
-
-    if snowflake_response.status_code == 201:
-        st.success("Snowflake connection added to Astro!")
-    else:
-        st.error(f"Failed to add Snowflake connection: {snowflake_response.status_code} - {snowflake_response.text}")
 
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
@@ -122,17 +79,17 @@ with DAG(
     upload_to_s3 = LocalFilesystemToS3Operator(
         task_id="upload_file_to_s3",
         filename="/path/to/your/local/file.csv",
-        dest_key="{prefix}",
-        dest_bucket_name="{bucket_name}",
-        aws_conn_id="aws_default",
+        dest_key="your-s3-prefix/",  # Replace with your S3 key
+        dest_bucket_name="your-s3-bucket-name",  # Replace with your S3 bucket
+        aws_conn_id="{s3_connection_id}",  # Use the user-provided connection ID for AWS
     )
 
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
-        table="your_table_name",
-        stage="{dag_name}_stage",
+        table="your_table_name",  # Replace with your Snowflake table name
+        stage="your_stage_name",  # Replace with your Snowflake stage
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-        snowflake_conn_id="snowflake_default",
+        snowflake_conn_id="{snowflake_connection_id}",  # Use the user-provided connection ID for Snowflake
     )
 
     upload_to_s3 >> load_to_snowflake
