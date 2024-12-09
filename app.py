@@ -36,25 +36,12 @@ bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket"
 local_file_path = st.text_input("Local File Path", placeholder="/path/to/your/local/file.csv")
 s3_dest_key = st.text_input("S3 Destination Key (Path in Bucket)", placeholder="e.g., Scarf/your_file_name.csv")
 
-st.write("""
-**Instructions**:  
-1. Your **S3 Connection ID** should match the one created in Astro for AWS.  
-2. Your **Local File Path** must be the absolute path to the file you want to upload to S3.  
-3. Your **S3 Destination Key** is the path inside the bucket, including folders and file name. For example, `Scarf/my_file.csv`.
-""")
-
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
 snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake_default")
 snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., analytics_table")
 snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
-
-st.write("""
-**Instructions**:  
-1. Your **Snowflake Connection ID** should match the one created in Astro for Snowflake.  
-2. The **Snowflake Table Name** must either already exist or be created dynamically by the DAG.  
-3. Your **Snowflake Stage Name** must point to the correct external stage for the data.
-""")
+create_table = st.checkbox("Create a new Snowflake table if it doesn't exist")
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
@@ -70,9 +57,18 @@ start_date = st.date_input("Start Date", value=datetime.now())
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
     # DAG File
+    create_table_sql = f"""
+    CREATE TABLE IF NOT EXISTS {snowflake_table} (
+        id INT AUTOINCREMENT,
+        data STRING,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """ if create_table else ""
+
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
 from datetime import datetime
 
@@ -92,6 +88,14 @@ with DAG(
     catchup=False,
 ) as dag:
 
+    # Task 1: Create table in Snowflake (if checkbox selected)
+    {f'create_table_task = SnowflakeOperator('
+    f'    task_id="create_table",'
+    f'    sql="{create_table_sql}",'
+    f'    snowflake_conn_id="{snowflake_connection_id}",'
+    f')' if create_table else ''}
+
+    # Task 2: Upload local file to S3
     upload_to_s3 = LocalFilesystemToS3Operator(
         task_id="upload_file_to_s3",
         filename="{local_file_path}",
@@ -100,6 +104,7 @@ with DAG(
         aws_conn_id="{s3_connection_id}",
     )
 
+    # Task 3: Load data from S3 into Snowflake
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
         table="{snowflake_table}",
@@ -108,7 +113,8 @@ with DAG(
         snowflake_conn_id="{snowflake_connection_id}",
     )
 
-    upload_to_s3 >> load_to_snowflake
+    # Define dependencies
+    {f'create_table_task >> ' if create_table else ''}upload_to_s3 >> load_to_snowflake
     """
     # Push to GitHub
     encoded_dag = base64.b64encode(dag_code.encode()).decode()
