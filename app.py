@@ -3,13 +3,13 @@ import requests
 from datetime import datetime
 import base64
 
-# GitHub and Astro Configuration
+# GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_REPO = "YourGitHubRepo/astro-dags"
 GITHUB_BRANCH = "main"
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 
-# Custom CSS for better UI
+# Custom CSS
 st.markdown("""
     <style>
         body, input, select, textarea { font-family: 'Inter', sans-serif; }
@@ -21,12 +21,12 @@ st.markdown("""
 
 # Intro
 st.title("Astro DAG Wizard")
-st.write("Welcome! Use this wizard to generate a fully functional Airflow DAG for your Snowflake workflows.")
-st.write("**Reminder:** Please configure your S3 and Snowflake connections in Astro before proceeding and note the connection IDs.")
+st.write("Welcome! Use this wizard to generate a fully functional Airflow DAG.")
+st.write("**Note:** Ensure your S3 and Snowflake connections are preconfigured in Astro, and have their connection IDs ready.")
 
 # S3 Configuration
 st.header("Step 1: S3 Configuration")
-s3_bucket = st.text_input("S3 Bucket Name", placeholder="e.g., scarfdata")
+s3_conn_id = st.text_input("S3 Connection ID", placeholder="e.g., s3")
 s3_key = st.text_input("S3 Key (File Path)", placeholder="e.g., Scarf/your-file.csv")
 
 # Snowflake Configuration
@@ -35,7 +35,6 @@ snowflake_conn_id = st.text_input("Snowflake Connection ID", placeholder="e.g., 
 snowflake_database = st.text_input("Snowflake Database Name", placeholder="e.g., TEST_DB")
 snowflake_schema = st.text_input("Snowflake Schema Name", placeholder="e.g., public")
 snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., scarf")
-snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
 
 # DAG Configuration
 st.header("Step 3: DAG Configuration")
@@ -79,12 +78,12 @@ with DAG(
         table="{snowflake_table}",
         database="{snowflake_database}",
         schema="{snowflake_schema}",
-        stage="{snowflake_stage}",
+        snowflake_conn_id="{snowflake_conn_id}",
+        stage="",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
-        snowflake_conn_id="{snowflake_conn_id}",
         s3_key="{s3_key}",
-        aws_conn_id="s3",
+        aws_conn_id="{s3_conn_id}",
     )
     """
 
