@@ -25,8 +25,11 @@ st.warning(
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
 s3_conn_id = st.text_input("S3 Connection ID", placeholder="e.g., s3")
-s3_bucket = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-s3_key = st.text_input("S3 Destination Key (File Path)", placeholder="e.g., folder/subfolder/file.csv")
+s3_stage = st.text_input(
+    "Snowflake Stage for S3",
+    placeholder="e.g., my_stage",
+    help="This stage should point to your S3 bucket and prefix.",
+)
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
@@ -45,13 +48,13 @@ st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
     "How often should this DAG run?",
-    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"]
+    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"],
 )
 if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Generate and Upload DAG Code
+# Generate and Upload DAG
 if st.button("Generate and Push DAG to GitHub"):
     dag_code = f"""
 from airflow import DAG
@@ -80,12 +83,10 @@ with DAG(
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
         table="{snowflake_table}",
-        stage="{s3_conn_id}_stage",
+        stage="{s3_stage}",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
         snowflake_conn_id="{snowflake_conn_id}",
-        s3_bucket_name="{s3_bucket}",
-        s3_key="{s3_key}",
     )
 
     {'create_table_task >> load_to_snowflake' if create_table else ''}
