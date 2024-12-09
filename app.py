@@ -13,8 +13,7 @@ GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 st.title("Astro DAG Wizard")
 st.write(
     "Welcome! Use this wizard to create an Airflow DAG for loading data from S3 to Snowflake. "
-    "Before starting, ensure you have created your S3 and Snowflake connections in Astro. "
-    "You'll need their **connection IDs**."
+    "Before starting, ensure you have created your S3 and Snowflake connections in Astro and have their **connection IDs**."
 )
 
 # Step 1: S3 Configuration
@@ -35,13 +34,6 @@ s3_destination_key = st.text_input(
 st.header("Step 2: Snowflake Configuration")
 snowflake_conn_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
 snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., analytics_table")
-create_table = st.checkbox("Create Snowflake Table if not exists", value=True)
-
-if create_table:
-    table_columns = st.text_area(
-        "Table Columns (Name and Type)",
-        placeholder="e.g., id INT, name STRING, created_at TIMESTAMP",
-    )
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
@@ -59,7 +51,6 @@ if st.button("Generate and Push DAG to GitHub"):
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
-{'from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator' if create_table else ''}
 from datetime import datetime
 
 default_args = {{
@@ -78,8 +69,6 @@ with DAG(
     catchup=False,
 ) as dag:
 
-    {'create_table_task = SnowflakeOperator(task_id="create_table", sql="CREATE TABLE IF NOT EXISTS {snowflake_table} ({table_columns})", snowflake_conn_id="{snowflake_conn_id}")' if create_table else ''}
-
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
         table="{snowflake_table}",
@@ -90,8 +79,6 @@ with DAG(
         s3_key="{s3_destination_key}",
         aws_conn_id="{s3_conn_id}",
     )
-
-    {'create_table_task >> load_to_snowflake' if create_table else ''}
     """
     # Encode and push to GitHub
     encoded_dag = base64.b64encode(dag_code.encode()).decode()
