@@ -27,44 +27,35 @@ st.markdown("""
 # Title
 st.title("Astro Project Wizard")
 st.write("Welcome! This wizard will help you create an Astro project with ease, even if you're new to Airflow.")
-st.write("**Important**: Before proceeding, ensure your S3 and Snowflake connections are created in Astro.")
 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
-s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., s3_default")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-local_file_path = st.text_input("Local File Path", placeholder="/path/to/your/local/file.csv")
-s3_dest_key = st.text_input("S3 Destination Key (Path in Bucket)", placeholder="e.g., Scarf/your_file_name.csv")
+s3_dest_key = st.text_input("S3 Destination Key", placeholder="e.g., your-s3-prefix/")
+s3_connection_id = st.text_input("AWS Connection ID", placeholder="e.g., s3")
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
-snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake_default")
-snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., analytics_table")
+snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
 snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
-create_table = st.checkbox("Create a new Snowflake table if it doesn't exist")
+snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
+create_table = st.checkbox("Create a new Snowflake table", value=False)
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
     "How often should this DAG run?",
-    ["Daily", "Hourly", "Weekly", "Monthly", "Custom"]
+    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"]
 )
-if schedule == "Custom":
+if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
+local_file_path = st.text_input("Local File Path", placeholder="e.g., /path/to/your/local/file.csv")
 
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
     # DAG File
-    create_table_sql = f"""
-    CREATE TABLE IF NOT EXISTS {snowflake_table} (
-        id INT AUTOINCREMENT,
-        data STRING,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """ if create_table else ""
-
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
@@ -89,11 +80,17 @@ with DAG(
 ) as dag:
 
     # Task 1: Create table in Snowflake (if checkbox selected)
-    {f'create_table_task = SnowflakeOperator('
-    f'    task_id="create_table",'
-    f'    sql="{create_table_sql}",'
-    f'    snowflake_conn_id="{snowflake_connection_id}",'
-    f')' if create_table else ''}
+    {f'''create_table_task = SnowflakeOperator(
+        task_id="create_table",
+        sql=f\"\"\"
+        CREATE TABLE IF NOT EXISTS {snowflake_table} (
+            id INT AUTOINCREMENT,
+            data STRING,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        \"\"\",
+        snowflake_conn_id="{snowflake_connection_id}",
+    )''' if create_table else ''}
 
     # Task 2: Upload local file to S3
     upload_to_s3 = LocalFilesystemToS3Operator(
@@ -116,12 +113,16 @@ with DAG(
     # Define dependencies
     {f'create_table_task >> ' if create_table else ''}upload_to_s3 >> load_to_snowflake
     """
+
     # Push to GitHub
     encoded_dag = base64.b64encode(dag_code.encode()).decode()
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/dags/{dag_name}.py"
-    payload = {"message": f"Add {dag_name}.py", "content": encoded_dag, "branch": GITHUB_BRANCH}
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    response = requests.put(url, json=payload, headers=headers)
+    response = requests.put(
+        url,
+        json={"message": f"Add {dag_name}.py", "content": encoded_dag, "branch": GITHUB_BRANCH},
+        headers=headers,
+    )
     if response.status_code in [200, 201]:
         st.success(f"{dag_name}.py pushed to GitHub!")
     else:
