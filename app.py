@@ -31,45 +31,45 @@ st.write("Welcome! This wizard will help you create an Astro project with ease, 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-prefix = st.text_input("S3 Prefix (Optional)", placeholder="e.g., raw/")
-aws_conn_id = st.text_input("AWS Connection ID", placeholder="e.g., s3")
+aws_access_key = st.text_input("AWS Access Key ID", type="password")
+aws_secret_key = st.text_input("AWS Secret Access Key", type="password")
+local_file_path = st.text_input("Local File Path", placeholder="/path/to/your/local/file.csv")
+s3_dest_key = st.text_input("S3 Destination Key (Path in Bucket)", placeholder="e.g., Scarf/your_file_name.csv")
+
+st.write("""
+**Instructions**:  
+1. Your **Local File Path** must be the absolute path to the file you want to upload to S3.  
+2. Your **S3 Destination Key** is the path inside the bucket, including folders and file name. For example, `Scarf/my_file.csv`.
+""")
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
-snowflake_conn_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
-snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., my_stage")
-snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., my_table")
-create_table = st.checkbox("Create Snowflake table dynamically", value=False)
-if create_table:
-    snowflake_schema = st.text_area("Table Schema (SQL)", "CREATE TABLE my_table (column1 STRING, column2 INT);")
+snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
+database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
+schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
+warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
+role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
+username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
+password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
     "How often should this DAG run?",
-    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"]
+    ["Daily", "Hourly", "Weekly", "Monthly", "Custom"]
 )
-if schedule == "Custom (Advanced)":
+if schedule == "Custom":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
 
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
     # DAG File
-    create_table_task = f"""
-    create_table = SnowflakeOperator(
-        task_id="create_table",
-        sql=\"\"\"{snowflake_schema}\"\"\",
-        snowflake_conn_id="{snowflake_conn_id}",
-    )
-    """ if create_table else ""
-
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from datetime import datetime
 
 default_args = {{
@@ -90,30 +90,28 @@ with DAG(
 
     upload_to_s3 = LocalFilesystemToS3Operator(
         task_id="upload_file_to_s3",
-        filename="/path/to/your/local/file.csv",
-        dest_key="{prefix}",
+        filename="{local_file_path}",
+        dest_key="{s3_dest_key}",
         dest_bucket_name="{bucket_name}",
-        aws_conn_id="{aws_conn_id}",
+        aws_conn_id="s3",  # Ensure the connection ID matches what's configured in Astro
     )
-
-    {create_table_task}
 
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
-        table="{snowflake_table}",
-        stage="{snowflake_stage}",
+        table="your_table_name",  # Replace with your Snowflake table name
+        stage="your_stage_name",  # Replace with your Snowflake stage
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-        snowflake_conn_id="{snowflake_conn_id}",
+        snowflake_conn_id="snowflake",  # Ensure the connection ID matches what's configured in Astro
     )
 
     upload_to_s3 >> load_to_snowflake
-    {"create_table >> load_to_snowflake" if create_table else ""}
     """
     # Push to GitHub
     encoded_dag = base64.b64encode(dag_code.encode()).decode()
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/dags/{dag_name}.py"
     payload = {"message": f"Add {dag_name}.py", "content": encoded_dag, "branch": GITHUB_BRANCH}
-    response = requests.put(url, json=payload, headers={"Authorization": f"Bearer {GITHUB_TOKEN}"})
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+    response = requests.put(url, json=payload, headers=headers)
     if response.status_code in [200, 201]:
         st.success(f"{dag_name}.py pushed to GitHub!")
     else:
