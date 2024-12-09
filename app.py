@@ -5,42 +5,49 @@ import base64
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_REPO = "AlexBell101/astro-dags"
-GITHUB_BRANCH = "main"
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+GITHUB_REPO = "YourGitHubRepo/astro-dags"  # Replace with your GitHub repository name
+GITHUB_BRANCH = "main"  # Replace with your target branch
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
-# Title
-st.title("Astro Project Wizard")
-st.write("Welcome! This wizard will help you create a working Airflow DAG for uploading data from S3 to Snowflake. "
-         "Ensure you have preconfigured your connections in Astro and have the connection IDs handy.")
+# Custom CSS
+st.markdown("""
+    <style>
+        body, input, select, textarea { font-family: 'Inter', sans-serif; }
+        h1 { color: #1A73E8; }
+        .stButton>button { background-color: #1A73E8; color: white; }
+        .stButton>button:hover { background-color: #135BA1; }
+    </style>
+""", unsafe_allow_html=True)
 
-# Step 1: DAG Configuration
-st.header("Step 1: DAG Configuration")
+# Intro
+st.title("Astro DAG Wizard")
+st.write("Welcome! Use this wizard to generate a fully functional Airflow DAG for loading data from S3 to Snowflake.")
+st.write("**Note:** Ensure your S3 bucket is accessible via a pre-created Snowflake stage with the necessary credentials.")
+
+# S3 & Snowflake Configuration
+st.header("Step 1: Snowflake Configuration")
+snowflake_conn_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
+snowflake_database = st.text_input("Snowflake Database Name", placeholder="e.g., TEST_DB")
+snowflake_schema = st.text_input("Snowflake Schema Name", placeholder="e.g., public")
+snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
+snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
+
+# DAG Configuration
+st.header("Step 2: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
-    "How often should this DAG run?",
-    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"]
+    "Schedule Interval",
+    ["Every hour", "Every day", "Every week", "Custom (Advanced)"]
 )
 if schedule == "Custom (Advanced)":
-    schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
+    schedule = st.text_input("Enter Cron Expression", placeholder="e.g., 0 * * * *")
+else:
+    schedule = {"Every hour": "@hourly", "Every day": "@daily", "Every week": "@weekly"}[schedule]
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Step 2: S3 Configuration
-st.header("Step 2: S3 Configuration")
-s3_key = st.text_input("S3 File Path (Key)", placeholder="e.g., Scarf/your-file.csv")
-s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., s3")
-
-# Step 3: Snowflake Configuration
-st.header("Step 3: Snowflake Configuration")
-snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
-snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
-snowflake_database = st.text_input("Snowflake Database Name", placeholder="e.g., your_database_name")
-snowflake_schema = st.text_input("Snowflake Schema Name", placeholder="e.g., your_schema_name")
-snowflake_stage_name = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
-
-# Generate Files
-if st.button("Generate and Push Astro Project to GitHub"):
-    # Create DAG File
+# Generate and Push DAG
+if st.button("Generate and Push DAG"):
+    # DAG Code
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
@@ -68,11 +75,10 @@ with DAG(
         table="{snowflake_table}",
         database="{snowflake_database}",
         schema="{snowflake_schema}",
-        stage="{snowflake_stage_name}",
+        stage="{snowflake_stage}",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
-        snowflake_conn_id="{snowflake_connection_id}",
-        aws_conn_id="{s3_connection_id}",
+        snowflake_conn_id="{snowflake_conn_id}",
     )
     """
 
@@ -83,6 +89,6 @@ with DAG(
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
     response = requests.put(url, json=payload, headers=headers)
     if response.status_code in [200, 201]:
-        st.success(f"{dag_name}.py pushed to GitHub!")
+        st.success(f"DAG {dag_name} successfully pushed to GitHub!")
     else:
-        st.error(f"Failed to push {dag_name}.py: {response.status_code} - {response.text}")
+        st.error(f"Failed to push DAG: {response.status_code} - {response.text}")
