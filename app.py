@@ -5,21 +5,16 @@ import base64
 
 # GitHub Configuration
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
-GITHUB_BRANCH = "main"  # Replace with your target branch
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
+GITHUB_REPO = "AlexBell101/astro-dags"
+GITHUB_BRANCH = "main"
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 
-# Title and Introduction
+# Title and Instructions
 st.title("Astro DAG Wizard")
 st.write(
-    "Welcome! This wizard will help you generate an Airflow DAG for transferring files from S3 to Snowflake. "
-    "No prior Airflow experience needed!"
-)
-
-# Connection Reminder
-st.warning(
-    "Before starting, make sure you have added your S3 and Snowflake connections in Astro. "
-    "You’ll need the **connection IDs** to proceed. You can add connections via the 'Connections' tab in the Astro UI."
+    "Welcome! Use this wizard to create an Airflow DAG for loading data from S3 to Snowflake. "
+    "Before starting, ensure you have created your S3 and Snowflake connections in Astro. "
+    "You'll need their **connection IDs**."
 )
 
 # Step 1: S3 Configuration
@@ -29,6 +24,11 @@ s3_stage = st.text_input(
     "Snowflake Stage for S3",
     placeholder="e.g., my_stage",
     help="This stage should point to your S3 bucket and prefix.",
+)
+s3_destination_key = st.text_input(
+    "S3 Destination Key (File Path)",
+    placeholder="e.g., Scarf/company-rollups-scarf-export.csv",
+    help="Specify the file path in S3 to load into Snowflake.",
 )
 
 # Step 2: Snowflake Configuration
@@ -87,6 +87,8 @@ with DAG(
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
         snowflake_conn_id="{snowflake_conn_id}",
+        s3_key="{s3_destination_key}",
+        aws_conn_id="{s3_conn_id}",
     )
 
     {'create_table_task >> load_to_snowflake' if create_table else ''}
