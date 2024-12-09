@@ -82,13 +82,33 @@ with DAG(
     )
     """
 
-    # Push to GitHub
-    encoded_dag = base64.b64encode(dag_code.encode()).decode()
-    url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/dags/{dag_name}.py"
-    payload = {"message": f"Add {dag_name}.py", "content": encoded_dag, "branch": GITHUB_BRANCH}
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    response = requests.put(url, json=payload, headers=headers)
-    if response.status_code in [200, 201]:
-        st.success(f"DAG {dag_name} successfully pushed to GitHub!")
-    else:
-        st.error(f"Failed to push DAG: {response.status_code} - {response.text}")
+  # Encode and push to GitHub
+encoded_dag = base64.b64encode(dag_code.encode()).decode()
+dag_path = f"dags/{dag_name}.py"  # Ensure this matches the folder structure in GitHub
+url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/{dag_path}"
+headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+
+# Fetch file info to check if it exists
+response = requests.get(url, headers=headers)
+if response.status_code == 200:  # File exists, get the SHA for update
+    sha = response.json().get("sha")
+else:  # File doesn't exist, prepare for creation
+    sha = None
+
+# Create the payload
+payload = {
+    "message": f"Add {dag_name}.py",
+    "content": encoded_dag,
+    "branch": GITHUB_BRANCH,
+}
+if sha:
+    payload["sha"] = sha
+
+# Push to GitHub
+upload_response = requests.put(url, json=payload, headers=headers)
+
+# Handle response
+if upload_response.status_code in [200, 201]:
+    st.success(f"DAG {dag_name}.py successfully pushed to GitHub!")
+else:
+    st.error(f"Failed to push DAG: {upload_response.status_code} - {upload_response.text}")
