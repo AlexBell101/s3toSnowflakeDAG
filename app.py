@@ -28,7 +28,6 @@ start_date = st.date_input("Start Date", value=datetime.now())
 # Step 2: S3 Configuration
 st.header("Step 2: S3 Configuration")
 s3_key = st.text_input("S3 File Path (Key)", placeholder="e.g., my-folder/my-file.csv")
-s3_stage_name = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
 s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., s3")
 
 # Step 3: Snowflake Configuration
@@ -37,6 +36,7 @@ snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="
 snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
 snowflake_database = st.text_input("Snowflake Database Name", placeholder="e.g., your_database_name")
 snowflake_schema = st.text_input("Snowflake Schema Name", placeholder="e.g., your_schema_name")
+snowflake_stage_name = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
 
 # Generate Files
 if st.button("Generate and Push Astro Project to GitHub"):
@@ -68,7 +68,7 @@ with DAG(
         table="{snowflake_table}",
         database="{snowflake_database}",
         schema="{snowflake_schema}",
-        stage="{s3_stage_name}",
+        stage="{snowflake_stage_name}",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
         pattern=".*\\.csv",
         snowflake_conn_id="{snowflake_connection_id}",
