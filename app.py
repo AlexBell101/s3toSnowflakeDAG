@@ -9,6 +9,9 @@ GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository na
 GITHUB_BRANCH = "main"  # Replace with your target branch
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
+# Astro API Configuration
+ASTRO_API_URL = st.secrets["ASTRO_API"]  # Access Astro API URL from secrets
+
 # Custom CSS
 st.markdown("""
     <style>
@@ -26,42 +29,46 @@ st.markdown("""
 
 # Title
 st.title("Astro Project Wizard")
-st.write("Welcome! This wizard will help you create an Astro project with ease, even if you're new to Airflow.")
+st.write("Welcome! This wizard helps you create an Astro project to transfer files from S3 to Snowflake, even if you're new to Airflow.")
 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
-bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-s3_dest_key = st.text_input("S3 Destination Key", placeholder="e.g., your-s3-prefix/")
-s3_connection_id = st.text_input("AWS Connection ID", placeholder="e.g., s3")
-local_file_path = st.text_input("Local File Path", placeholder="e.g., /path/to/your/local/file.csv")
+s3_bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., scarfdata")
+s3_key = st.text_input("S3 File Key (Full Path)", placeholder="e.g., Scarf/company-rollups.csv")
+s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., s3")
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
-snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., your_table_name")
+snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., company_rollups")
 snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
-snowflake_conn_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
-create_table = st.checkbox("Create a new Snowflake table if it doesn't exist")
+snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake")
+
+# Optional: Create Snowflake Table
+create_table = st.checkbox("Create Snowflake Table (if it doesn't exist)")
+if create_table:
+    table_columns = st.text_area(
+        "Table Columns (SQL Format)",
+        placeholder="e.g., id INT, name STRING, created_at TIMESTAMP"
+    )
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
 dag_name = st.text_input("DAG Name", placeholder="e.g., s3_to_snowflake_dag")
 schedule = st.selectbox(
     "How often should this DAG run?",
-    ["Daily", "Hourly", "Weekly", "Custom (Advanced)"]
+    ["Once", "Daily", "Hourly", "Weekly", "Custom"]
 )
-if schedule == "Custom (Advanced)":
+if schedule == "Custom":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
+else:
+    schedule = {"Once": None, "Daily": "@daily", "Hourly": "@hourly", "Weekly": "@weekly"}[schedule]
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Generate Files
+# Generate DAG Code
 if st.button("Generate and Push Astro Project to GitHub"):
-    # DAG File
-    create_table_sql = f"CREATE TABLE IF NOT EXISTS {snowflake_table} (id INT, name STRING);" if create_table else ""
     dag_code = f"""
 from airflow import DAG
-from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from datetime import datetime
 
 default_args = {{
@@ -75,32 +82,28 @@ default_args = {{
 with DAG(
     dag_id="{dag_name}",
     default_args=default_args,
-    schedule_interval="{schedule}",
+    schedule_interval={repr(schedule)},
     start_date=datetime({start_date.year}, {start_date.month}, {start_date.day}),
     catchup=False,
 ) as dag:
 
-    upload_to_s3 = LocalFilesystemToS3Operator(
-        task_id="upload_file_to_s3",
-        filename="{local_file_path}",
-        dest_key="{s3_dest_key}",
-        dest_bucket_name="{bucket_name}",
-        aws_conn_id="{s3_connection_id}",
-    )
-
-    {"create_table_task = SnowflakeOperator(task_id='create_table', sql=f'{create_table_sql}', snowflake_conn_id='{snowflake_conn_id}')"
-    if create_table else ""}
+    {"# Task: Create Snowflake Table\n    create_table_task = SnowflakeOperator(\n        task_id='create_table',\n        sql='CREATE TABLE IF NOT EXISTS {snowflake_table} ({table_columns})',\n        snowflake_conn_id='{snowflake_connection_id}',\n    )" if create_table else ""}
 
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
         table="{snowflake_table}",
         stage="{snowflake_stage}",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-        snowflake_conn_id="{snowflake_conn_id}",
+        pattern=".*\\.csv",
+        snowflake_conn_id="{snowflake_connection_id}",
+        s3_key="{s3_key}",
+        s3_bucket_name="{s3_bucket_name}",
+        aws_conn_id="{s3_connection_id}",
     )
 
-    upload_to_s3 >> {"create_table_task >> " if create_table else ""}load_to_snowflake
+    {"create_table_task >> load_to_snowflake" if create_table else ""}
     """
+
     # Push to GitHub
     encoded_dag = base64.b64encode(dag_code.encode()).decode()
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/dags/{dag_name}.py"
