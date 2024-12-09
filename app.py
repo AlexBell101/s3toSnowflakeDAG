@@ -1,5 +1,13 @@
 import streamlit as st
+import requests
 from datetime import datetime
+import base64
+
+# GitHub Configuration
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_REPO = "AlexBell101/astro-dags"  # Replace with your GitHub repository name
+GITHUB_BRANCH = "main"  # Replace with your target branch
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Access GitHub token from secrets
 
 # Title and Introduction
 st.title("Astro DAG Wizard")
@@ -43,8 +51,8 @@ if schedule == "Custom (Advanced)":
     schedule = st.text_input("Custom Schedule Interval", placeholder="e.g., 0 12 * * *")
 start_date = st.date_input("Start Date", value=datetime.now())
 
-# Generate the DAG code
-if st.button("Generate DAG Code"):
+# Generate and Upload DAG Code
+if st.button("Generate and Push DAG to GitHub"):
     dag_code = f"""
 from airflow import DAG
 from airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator
@@ -82,5 +90,14 @@ with DAG(
 
     {'create_table_task >> load_to_snowflake' if create_table else ''}
     """
-    st.code(dag_code, language="python")
-    st.success("DAG code generated successfully!")
+    # Encode and push to GitHub
+    encoded_dag = base64.b64encode(dag_code.encode()).decode()
+    url = f"{GITHUB_API_URL}/repos/{GITHUB_REPO}/contents/dags/{dag_name}.py"
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+    payload = {"message": f"Add {dag_name}.py", "content": encoded_dag, "branch": GITHUB_BRANCH}
+
+    response = requests.put(url, json=payload, headers=headers)
+    if response.status_code in [200, 201]:
+        st.success(f"{dag_name}.py pushed to GitHub successfully!")
+    else:
+        st.error(f"Failed to push {dag_name}.py: {response.status_code} - {response.text}")
