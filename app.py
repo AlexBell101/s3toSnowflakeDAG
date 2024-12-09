@@ -27,30 +27,34 @@ st.markdown("""
 # Title
 st.title("Astro Project Wizard")
 st.write("Welcome! This wizard will help you create an Astro project with ease, even if you're new to Airflow.")
+st.write("**Important**: Before proceeding, ensure your S3 and Snowflake connections are created in Astro.")
 
 # Step 1: S3 Configuration
 st.header("Step 1: S3 Configuration")
+s3_connection_id = st.text_input("S3 Connection ID", placeholder="e.g., s3_default")
 bucket_name = st.text_input("S3 Bucket Name", placeholder="e.g., my-data-bucket")
-aws_access_key = st.text_input("AWS Access Key ID", type="password")
-aws_secret_key = st.text_input("AWS Secret Access Key", type="password")
 local_file_path = st.text_input("Local File Path", placeholder="/path/to/your/local/file.csv")
 s3_dest_key = st.text_input("S3 Destination Key (Path in Bucket)", placeholder="e.g., Scarf/your_file_name.csv")
 
 st.write("""
 **Instructions**:  
-1. Your **Local File Path** must be the absolute path to the file you want to upload to S3.  
-2. Your **S3 Destination Key** is the path inside the bucket, including folders and file name. For example, `Scarf/my_file.csv`.
+1. Your **S3 Connection ID** should match the one created in Astro for AWS.  
+2. Your **Local File Path** must be the absolute path to the file you want to upload to S3.  
+3. Your **S3 Destination Key** is the path inside the bucket, including folders and file name. For example, `Scarf/my_file.csv`.
 """)
 
 # Step 2: Snowflake Configuration
 st.header("Step 2: Snowflake Configuration")
-snowflake_account = st.text_input("Snowflake Account Name", placeholder="e.g., xy12345.us-east-1")
-database = st.text_input("Snowflake Database", placeholder="e.g., analytics")
-schema = st.text_input("Snowflake Schema", placeholder="e.g., public")
-warehouse = st.text_input("Snowflake Warehouse", placeholder="e.g., compute_wh")
-role = st.text_input("Snowflake Role (Optional)", placeholder="e.g., sysadmin")
-username = st.text_input("Snowflake Username", placeholder="Your Snowflake Username")
-password = st.text_input("Snowflake Password", type="password", placeholder="Your Snowflake Password")
+snowflake_connection_id = st.text_input("Snowflake Connection ID", placeholder="e.g., snowflake_default")
+snowflake_table = st.text_input("Snowflake Table Name", placeholder="e.g., analytics_table")
+snowflake_stage = st.text_input("Snowflake Stage Name", placeholder="e.g., your_stage_name")
+
+st.write("""
+**Instructions**:  
+1. Your **Snowflake Connection ID** should match the one created in Astro for Snowflake.  
+2. The **Snowflake Table Name** must either already exist or be created dynamically by the DAG.  
+3. Your **Snowflake Stage Name** must point to the correct external stage for the data.
+""")
 
 # Step 3: DAG Configuration
 st.header("Step 3: DAG Configuration")
@@ -93,15 +97,15 @@ with DAG(
         filename="{local_file_path}",
         dest_key="{s3_dest_key}",
         dest_bucket_name="{bucket_name}",
-        aws_conn_id="s3",  # Ensure the connection ID matches what's configured in Astro
+        aws_conn_id="{s3_connection_id}",
     )
 
     load_to_snowflake = CopyFromExternalStageToSnowflakeOperator(
         task_id="load_s3_to_snowflake",
-        table="your_table_name",  # Replace with your Snowflake table name
-        stage="your_stage_name",  # Replace with your Snowflake stage
+        table="{snowflake_table}",
+        stage="{snowflake_stage}",
         file_format="(TYPE = CSV, FIELD_DELIMITER = ',', SKIP_HEADER = 1)",
-        snowflake_conn_id="snowflake",  # Ensure the connection ID matches what's configured in Astro
+        snowflake_conn_id="{snowflake_connection_id}",
     )
 
     upload_to_s3 >> load_to_snowflake
